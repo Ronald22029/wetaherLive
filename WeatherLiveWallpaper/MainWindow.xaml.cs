@@ -41,7 +41,7 @@ namespace WeatherLiveWallpaper
         private bool _isDragging = false;
         private ScrollViewer _scrollViewerTimeline;
 
-        // VENTANA SEPARADA PARA EL VIDEO
+        // VENTANA SEPARADA PARA EL VIDEO (FONDO)
         private Window videoWindow;
 
         // Lluvia
@@ -52,7 +52,7 @@ namespace WeatherLiveWallpaper
         bool mostrarLluvia = false;
         int tipoLluvia = 0;
 
-        // Propiedad para ConfigWindow
+        // Propiedad pública para la configuración
         public bool IsWidgetVisible { get { return ElWidget.Visibility == Visibility.Visible; } }
 
         public MainWindow()
@@ -86,12 +86,11 @@ namespace WeatherLiveWallpaper
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // 1. CREAR EL VIDEO AL FONDO (Detrás de Iconos)
+            // 1. CREAR EL VIDEO AL FONDO (Detrás)
             CrearVentanaVideoFondo();
 
-            // 2. CONFIGURAR EL WIDGET (Delante de Iconos)
+            // 2. WIDGET AL FRENTE (Interactivo)
             ForzarTamano();
-
             double anchoPantalla = SystemParameters.PrimaryScreenWidth;
             double altoPantalla = SystemParameters.PrimaryScreenHeight;
             ElWidget.Width = anchoPantalla * 0.20;
@@ -107,13 +106,19 @@ namespace WeatherLiveWallpaper
             await ActualizarClima();
         }
 
-        // --- GESTIÓN DE VIDEO ---
+        // --- MÉTODOS PÚBLICOS PARA CONFIGURACIÓN ---
         public void RecargarVideo()
         {
             if (videoWindow != null) videoWindow.Close();
             CrearVentanaVideoFondo();
         }
 
+        public void ToggleGadget(bool visible)
+        {
+            ElWidget.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        // --- SISTEMA DE VIDEO AL FONDO ---
         private void CrearVentanaVideoFondo()
         {
             try
@@ -156,20 +161,12 @@ namespace WeatherLiveWallpaper
             catch { }
         }
 
-        // --- GESTIÓN DE CONFIGURACIÓN ---
-        public void ToggleGadget(bool visible)
-        {
-            ElWidget.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        public bool IsGadgetVisible() { return ElWidget.Visibility == Visibility.Visible; }
-
         private void ConfigurarIconoBandeja()
         {
             iconoBandeja = new Forms.NotifyIcon();
             iconoBandeja.Icon = Drawing.SystemIcons.Application;
             iconoBandeja.Visible = true;
-            iconoBandeja.Text = "Wallpaper";
+            iconoBandeja.Text = "Wallpaper Widget";
 
             Forms.ContextMenu menu = new Forms.ContextMenu();
             menu.MenuItems.Add("⚙ Configurar", (s, e) => { new ConfigWindow().ShowDialog(); });
@@ -181,68 +178,13 @@ namespace WeatherLiveWallpaper
             iconoBandeja.ContextMenu = menu;
         }
 
-        // --- LLUVIA BURBUJA ---
+        // ... RESTO DE LÓGICA (LLUVIA, API, ETC) ...
         public class Gota { public float X, Y, Tamaño, VelocidadBase; public bool EsFondo; }
-
-        private SKBitmap CrearTexturaGota3D(int tamaño)
-        {
-            SKBitmap b = new SKBitmap(tamaño, tamaño);
-            using (SKCanvas c = new SKCanvas(b))
-            {
-                c.Clear(SKColors.Transparent);
-                float r = (tamaño / 2f) - 2;
-                SKPoint center = new SKPoint(tamaño / 2f, tamaño / 2f);
-                using (var pBody = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill, Color = SKColors.White.WithAlpha(15) })
-                { c.DrawCircle(center, r, pBody); }
-                using (var pBorder = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1.0f, Color = SKColors.White.WithAlpha(60) })
-                { c.DrawCircle(center, r, pBorder); }
-                using (var pHighlight = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill, Color = SKColors.White.WithAlpha(220) })
-                {
-                    c.Save(); c.RotateDegrees(-45, center.X, center.Y);
-                    c.DrawOval(new SKRect(center.X - r * 0.6f, center.Y - r * 0.7f, center.X + r * 0.2f, center.Y - r * 0.4f), pHighlight);
-                    c.Restore();
-                }
-            }
-            return b;
-        }
-
-        private void OnPintarLluvia(object sender, SKPaintSurfaceEventArgs e)
-        {
-            SKCanvas canvas = e.Surface.Canvas; anchoLienzoLluvia = e.Info.Width; altoLienzoLluvia = e.Info.Height; canvas.Clear(SKColors.Transparent);
-            if (!mostrarLluvia || tipoLluvia == 0) return;
-
-            int maxGotas = (tipoLluvia == 1) ? 100 : 300;
-            if (gotas.Count < maxGotas) InicializarLluvia(maxGotas / 20);
-            if (random.Next(0, (tipoLluvia == 1 ? 15 : 4)) == 0 && gotas.Count < maxGotas) gotas.Add(CrearGotaNueva(false));
-
-            using (var paintBitmap = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High })
-            {
-                for (int i = gotas.Count - 1; i >= 0; i--)
-                {
-                    Gota g = gotas[i];
-                    if (g.EsFondo)
-                    {
-                        canvas.DrawLine(g.X, g.Y, g.X, g.Y + g.Tamaño * 2, pincelLluviaFondo); g.Y += g.VelocidadBase;
-                        if (g.Y > altoLienzoLluvia) { g.Y = -50; g.X = random.Next(0, (int)anchoLienzoLluvia); }
-                    }
-                    else
-                    {
-                        float velocidadActual = g.VelocidadBase * 0.15f;
-                        if (tipoLluvia == 1) velocidadActual *= 0.6f;
-                        g.Y += velocidadActual;
-                        g.Tamaño -= 0.015f;
-                        if (g.Tamaño > 3) { var rectRastro = new SKRect(g.X, g.Y - g.Tamaño * 1.5f, g.X + g.Tamaño, g.Y); canvas.DrawOval(rectRastro, pincelRastro); }
-                        canvas.DrawBitmap(texturaGota3D, new SKRect(g.X, g.Y, g.X + g.Tamaño, g.Y + g.Tamaño), paintBitmap);
-                        if (g.Tamaño < 1f || g.Y > altoLienzoLluvia) gotas.RemoveAt(i);
-                    }
-                }
-            }
-        }
-
-        private Gota CrearGotaNueva(bool fondo) { float w = anchoLienzoLluvia > 0 ? anchoLienzoLluvia : 400; float h = altoLienzoLluvia > 0 ? altoLienzoLluvia : 500; if (fondo) { return new Gota { X = random.Next(0, (int)w), Y = random.Next(0, (int)h), VelocidadBase = random.Next(20, 35), Tamaño = random.Next(2, 5), EsFondo = true }; } else { float startY = (random.NextDouble() > 0.3) ? random.Next(0, (int)(h * 0.8)) : -20; float startX = random.Next(0, (int)w); float tamañoMin = (tipoLluvia == 1) ? 6 : 8; float tamañoMax = (tipoLluvia == 1) ? 10 : 14; float tamañoInicial = (float)(random.NextDouble() * (tamañoMax - tamañoMin) + tamañoMin); float velocidadBaseLenta = tamañoInicial * 0.1f; return new Gota { X = startX, Y = startY, Tamaño = tamañoInicial, VelocidadBase = velocidadBaseLenta, EsFondo = false }; } }
+        private SKBitmap CrearTexturaGota3D(int tamaño) { SKBitmap b = new SKBitmap(tamaño, tamaño); using (SKCanvas c = new SKCanvas(b)) { c.Clear(SKColors.Transparent); float r = (tamaño / 2f) - 2; SKPoint center = new SKPoint(tamaño / 2f, tamaño / 2f); using (var p = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill, Color = SKColors.White.WithAlpha(15) }) { c.DrawCircle(center, r, p); } using (var p = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1.0f, Color = SKColors.White.WithAlpha(60) }) { c.DrawCircle(center, r, p); } using (var p = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill, Color = SKColors.White.WithAlpha(220) }) { c.Save(); c.RotateDegrees(-45, center.X, center.Y); c.DrawOval(new SKRect(center.X - r * 0.6f, center.Y - r * 0.7f, center.X + r * 0.2f, center.Y - r * 0.4f), pHighlight); c.Restore(); } } return b; }
+        private void OnPintarLluvia(object sender, SKPaintSurfaceEventArgs e) { SKCanvas canvas = e.Surface.Canvas; anchoLienzoLluvia = e.Info.Width; altoLienzoLluvia = e.Info.Height; canvas.Clear(SKColors.Transparent); if (!mostrarLluvia || tipoLluvia == 0) return; int maxGotas = (tipoLluvia == 1) ? 100 : 300; if (gotas.Count < maxGotas) InicializarLluvia(maxGotas / 20); if (random.Next(0, (tipoLluvia == 1 ? 15 : 4)) == 0 && gotas.Count < maxGotas) gotas.Add(CrearGotaNueva(false)); using (var paintBitmap = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High }) { for (int i = gotas.Count - 1; i >= 0; i--) { Gota g = gotas[i]; if (g.EsFondo) { canvas.DrawLine(g.X, g.Y, g.X, g.Y + g.Tamaño * 2, pincelLluviaFondo); g.Y += g.VelocidadBase; if (g.Y > altoLienzoLluvia) { g.Y = -50; g.X = random.Next(0, (int)anchoLienzoLluvia); } } else { float velocidadActual = g.VelocidadBase * 0.15f; if (tipoLluvia == 1) velocidadActual *= 0.6f; g.Y += velocidadActual; g.Tamaño -= 0.015f; if (g.Tamaño > 3) { var rectRastro = new SKRect(g.X, g.Y - g.Tamaño * 1.5f, g.X + g.Tamaño, g.Y); canvas.DrawOval(rectRastro, pincelRastro); } canvas.DrawBitmap(texturaGota3D, new SKRect(g.X, g.Y, g.X + g.Tamaño, g.Y + g.Tamaño), paintBitmap); if (g.Tamaño < 1f || g.Y > altoLienzoLluvia) gotas.RemoveAt(i); } } } }
         private void InicializarLluvia(int cant) { for (int i = 0; i < cant; i++) gotas.Add(CrearGotaNueva(true)); }
+        private Gota CrearGotaNueva(bool fondo) { float w = anchoLienzoLluvia > 0 ? anchoLienzoLluvia : 400; float h = altoLienzoLluvia > 0 ? altoLienzoLluvia : 500; if (fondo) { return new Gota { X = random.Next(0, (int)w), Y = random.Next(0, (int)h), VelocidadBase = random.Next(20, 35), Tamaño = random.Next(2, 5), EsFondo = true }; } else { float startY = (random.NextDouble() > 0.3) ? random.Next(0, (int)(h * 0.8)) : -20; float startX = random.Next(0, (int)w); float tamañoMin = (tipoLluvia == 1) ? 6 : 8; float tamañoMax = (tipoLluvia == 1) ? 10 : 14; float tamañoInicial = (float)(random.NextDouble() * (tamañoMax - tamañoMin) + tamañoMin); float velocidadBaseLenta = tamañoInicial * 0.1f; return new Gota { X = startX, Y = startY, Tamaño = tamañoInicial, VelocidadBase = velocidadBaseLenta, EsFondo = false }; } }
 
-        // --- API ---
         private async Task ActualizarClima() { try { string ciudad = Properties.Settings.Default.UserCity; if (string.IsNullOrEmpty(ciudad)) ciudad = "Oruro"; string url = $"https://api.openweathermap.org/data/2.5/forecast?q={ciudad}&appid={API_KEY}&units=metric&lang=es"; string json = await clienteHttp.GetStringAsync(url); datosPronosticoGlobal = JsonConvert.DeserializeObject<ForecastResponse>(json); if (datosPronosticoGlobal != null) { TxtCiudad.Text = datosPronosticoGlobal.city.name; TxtAmanecer.Text = UnixToDateTime(datosPronosticoGlobal.city.sunrise).ToString("HH:mm"); TxtAtardecer.Text = UnixToDateTime(datosPronosticoGlobal.city.sunset).ToString("HH:mm"); var itemsUI = ProcesarPronosticoPorHora(datosPronosticoGlobal.list, datosPronosticoGlobal.city); ListaPronostico.ItemsSource = itemsUI; if (ListaPronostico.Items.Count > 0) { ListaPronostico.SelectedIndex = 0; ActualizarEstadoPaisaje(datosPronosticoGlobal.list[0], datosPronosticoGlobal.city, DateTime.Now); } } } catch { TxtCiudad.Text = "Error API"; } }
         private List<ItemPronostico> ProcesarPronosticoPorHora(List<ForecastItem> listaApi, CityInfo ciudadInfo) { List<ItemPronostico> resultado = new List<ItemPronostico>(); if (listaApi.Count > 0) resultado.Add(new ItemPronostico { Hora = "Ahora", Temp = Math.Round(listaApi[0].main.temp) + "°", IconoPath = DeterminarIcono(listaApi[0], ciudadInfo), DataRaw = listaApi[0] }); DateTime inicio = UnixToDateTime(listaApi[0].dt); DateTime fin = inicio.AddDays(2); for (int i = 0; i < listaApi.Count - 1; i++) { var itemActual = listaApi[i]; var itemSiguiente = listaApi[i + 1]; DateTime fechaActual = UnixToDateTime(itemActual.dt); DateTime fechaSiguiente = UnixToDateTime(itemSiguiente.dt); if (fechaActual > fin) break; while (fechaActual < fechaSiguiente) { if (fechaActual > inicio) { var itemSimulado = itemActual; itemSimulado.dt = ((DateTimeOffset)fechaActual).ToUnixTimeSeconds(); resultado.Add(new ItemPronostico { Hora = fechaActual.ToString("HH:mm"), Temp = Math.Round(itemActual.main.temp) + "°", IconoPath = DeterminarIcono(itemSimulado, ciudadInfo), DataRaw = itemActual }); } fechaActual = fechaActual.AddHours(1); } } return resultado; }
         private string DeterminarIcono(ForecastItem item, CityInfo ciudad) { string condicion = item.weather[0].main; string descripcion = item.weather[0].description.ToLower(); DateTime horaItem = UnixToDateTime(item.dt); DateTime amanecerHoy = UnixToDateTime(ciudad.sunrise); DateTime atardecerHoy = UnixToDateTime(ciudad.sunset); DateTime amanecerItem = new DateTime(horaItem.Year, horaItem.Month, horaItem.Day, amanecerHoy.Hour, amanecerHoy.Minute, 0); DateTime atardecerItem = new DateTime(horaItem.Year, horaItem.Month, horaItem.Day, atardecerHoy.Hour, atardecerHoy.Minute, 0); bool esNoche = (horaItem < amanecerItem || horaItem > atardecerItem); if (condicion == "Thunderstorm") return "iconorayos.png"; if (condicion == "Drizzle" || condicion == "Rain") return "iconolluvia.png"; if (condicion == "Snow") return "icononieve.png"; if (esNoche) return "icononubeluna.png"; else { if (condicion == "Clear") return "iconosol.png"; if (descripcion.Contains("broken") || descripcion.Contains("overcast")) return "icononube.png"; return "iconosolnube.png"; } }
@@ -251,6 +193,7 @@ namespace WeatherLiveWallpaper
         private void AnimarTransicion(Image imagenSaliente, Image imagenEntrante, string nuevaRutaResource) { try { imagenEntrante.Source = new BitmapImage(new Uri($"pack://application:,,,/{nuevaRutaResource}")); imagenEntrante.Opacity = 0; DoubleAnimation fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(1.0)); DoubleAnimation fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromSeconds(1.0)); fadeOut.Completed += (s, e) => { imagenSaliente.Source = imagenEntrante.Source; imagenSaliente.Opacity = 1; imagenEntrante.Opacity = 0; }; imagenEntrante.BeginAnimation(Image.OpacityProperty, fadeIn); imagenSaliente.BeginAnimation(Image.OpacityProperty, fadeOut); } catch { } }
         private DateTime UnixToDateTime(long unix) { return DateTimeOffset.FromUnixTimeSeconds(unix).ToLocalTime().DateTime; }
         private void GenerarNubesAnimadas(bool activar) { CanvasNubesFondo.Children.Clear(); if (!activar) return; BitmapImage imgNube; try { imgNube = new BitmapImage(new Uri("pack://application:,,,/nube.png")); } catch { return; } double anchoWidget = ElWidget.ActualWidth > 0 ? ElWidget.ActualWidth : 350; double altoWidget = ElWidget.ActualHeight > 0 ? ElWidget.ActualHeight : 500; int cantidad = 8; for (int i = 0; i < cantidad; i++) { Image nube = new Image { Source = imgNube }; RenderOptions.SetBitmapScalingMode(nube, BitmapScalingMode.HighQuality); double escala = random.NextDouble() * 1.2 + 0.6; nube.Width = (anchoWidget * 0.3) * escala; nube.Opacity = random.NextDouble() * 0.4 + 0.3; double topY = random.Next(-20, (int)(altoWidget * 0.4)); Canvas.SetTop(nube, topY); double startX = random.Next((int)-nube.Width, (int)anchoWidget); Canvas.SetLeft(nube, startX); CanvasNubesFondo.Children.Add(nube); DoubleAnimation anim = new DoubleAnimation { From = -nube.Width, To = anchoWidget + 50, Duration = new Duration(TimeSpan.FromSeconds(random.Next(50, 100))), RepeatBehavior = RepeatBehavior.Forever }; anim.BeginTime = TimeSpan.FromSeconds(-random.Next(0, 60)); nube.BeginAnimation(Canvas.LeftProperty, anim); } }
+
         protected override void OnClosed(EventArgs e) { if (iconoBandeja != null) iconoBandeja.Dispose(); base.OnClosed(e); }
         private void ForzarTamano() { this.Left = 0; this.Top = 0; this.Width = SystemParameters.PrimaryScreenWidth; this.Height = SystemParameters.PrimaryScreenHeight; }
         private void EnviarHandleAlFondo(IntPtr windowHandle) { IntPtr progman = FindWindow("Progman", null); SendMessage(progman, 0x052C, new IntPtr(0), IntPtr.Zero); IntPtr workerw = IntPtr.Zero; EnumWindows((tophandle, topparamhandle) => { IntPtr p = FindWindowEx(tophandle, IntPtr.Zero, "SHELLDLL_DefView", null); if (p != IntPtr.Zero) { workerw = FindWindowEx(IntPtr.Zero, tophandle, "WorkerW", null); } return true; }, IntPtr.Zero); if (workerw != IntPtr.Zero) SetParent(windowHandle, workerw); }
@@ -269,7 +212,7 @@ namespace WeatherLiveWallpaper
         [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
         public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
 
-        // CLASES RESTAURADAS
+        // CLASES (ESTO ELIMINA LOS 15 ERRORES ROJOS)
         public class ForecastResponse { public CityInfo city { get; set; } public List<ForecastItem> list { get; set; } }
         public class CityInfo { public string name { get; set; } public long sunrise { get; set; } public long sunset { get; set; } }
         public class ForecastItem { public long dt { get; set; } public MainInfo main { get; set; } public List<WeatherInfo> weather { get; set; } public WindInfo wind { get; set; } public int visibility { get; set; } }
