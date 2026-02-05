@@ -70,5 +70,29 @@ namespace WeatherLiveWallpaper.Properties {
                 this["VideoLibrary"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Metric")]
+        public string TemperatureUnit {
+            get {
+                return ((string)(this["TemperatureUnit"]));
+            }
+            set {
+                this["TemperatureUnit"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string UserThemePath {
+            get {
+                return ((string)(this["UserThemePath"]));
+            }
+            set {
+                this["UserThemePath"] = value;
+            }
+        }
     }
 }

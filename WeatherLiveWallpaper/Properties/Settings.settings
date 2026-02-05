@@ -14,5 +14,11 @@
     <Setting Name="VideoLibrary" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="TemperatureUnit" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Metric</Value>
+    </Setting>
+    <Setting Name="UserThemePath" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
   </Settings>
 </SettingsFile>
