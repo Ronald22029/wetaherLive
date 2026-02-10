@@ -94,5 +94,41 @@ namespace WeatherLiveWallpaper.Properties {
                 this["UserThemePath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public double RainSpeed {
+            get {
+                return ((double)(this["RainSpeed"]));
+            }
+            set {
+                this["RainSpeed"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public double RainSize {
+            get {
+                return ((double)(this["RainSize"]));
+            }
+            set {
+                this["RainSize"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public double RainWind {
+            get {
+                return ((double)(this["RainWind"]));
+            }
+            set {
+                this["RainWind"] = value;
+            }
+        }
     }
 }
